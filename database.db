@@ -1,0 +1,160 @@
+-- ==========================================
+-- SCRIPT DE REINICIO TOTAL DE LA BASE DE DATOS
+-- ==========================================
+-- ADVERTENCIA: Esto eliminará TODOS los datos existentes.
+
+-- 1. Limpieza de Tablas (Orden inverso a dependencias)
+DROP TABLE IF EXISTS usuario_logs CASCADE;
+DROP TABLE IF EXISTS usuario_logro CASCADE;
+DROP TABLE IF EXISTS logros CASCADE;
+DROP TABLE IF EXISTS usuario_habito CASCADE;
+DROP TABLE IF EXISTS habitos CASCADE;
+DROP TABLE IF EXISTS preferencias CASCADE;
+DROP TABLE IF EXISTS perfiles CASCADE;
+DROP TABLE IF EXISTS usuarios CASCADE;
+
+-- 2. Limpieza de Funciones y Triggers antiguos
+DROP TRIGGER IF EXISTS trg_create_profile_prefs ON usuarios;
+DROP FUNCTION IF EXISTS create_user_profile_and_preferences();
+DROP TRIGGER IF EXISTS trg_usuario_insert ON usuarios;
+DROP TRIGGER IF EXISTS trg_usuario_update ON usuarios;
+DROP TRIGGER IF EXISTS trg_usuario_delete ON usuarios;
+DROP FUNCTION IF EXISTS log_usuario_insert();
+DROP FUNCTION IF EXISTS log_usuario_update();
+DROP FUNCTION IF EXISTS log_usuario_delete();
+
+-- Definición de Tablas (Ordenadas por dependencias)
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT NOW(),
+    last_login TIMESTAMP -- Campo requerido por Django Auth
+);
+
+CREATE TABLE IF NOT EXISTS perfiles (
+    id_usuario INT PRIMARY KEY REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+    biografia TEXT,
+    puntos_totales INT DEFAULT 0,
+    racha_actual INT DEFAULT 0,
+    racha_maxima INT DEFAULT 0,
+    num_habitos_creados INT DEFAULT 0,
+    habitos_completados INT DEFAULT 0,
+    num_logros_obtenidos INT DEFAULT 0,
+    meta_diaria INT DEFAULT 3,
+    avatar_url TEXT -- Nuevo campo para avatar
+);
+
+CREATE TABLE IF NOT EXISTS preferencias (
+    id_usuario INT PRIMARY KEY REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+    modo_oscuro BOOLEAN DEFAULT FALSE,
+    notificaciones_push BOOLEAN DEFAULT FALSE,
+    notificaciones_email BOOLEAN DEFAULT FALSE,
+    zona_horaria VARCHAR(100),
+    idioma VARCHAR(50)
+);
+
+CREATE TABLE IF NOT EXISTS habitos (
+    id_habito SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    puntos INT DEFAULT 0,
+    fecha DATE DEFAULT CURRENT_DATE,
+    categoria VARCHAR(100),
+    dias VARCHAR(50),
+    estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'completado'))
+);
+
+CREATE TABLE IF NOT EXISTS usuario_habito (
+    id_usuario INT REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+    id_habito INT REFERENCES habitos(id_habito) ON DELETE CASCADE,
+    PRIMARY KEY (id_usuario, id_habito)
+);
+
+CREATE TABLE IF NOT EXISTS logros (
+    id_logro SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    puntos INT DEFAULT 0,
+    condicion TEXT
+);
+
+CREATE TABLE IF NOT EXISTS usuario_logro (
+    id_usuario INT REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+    id_logro INT REFERENCES logros(id_logro) ON DELETE CASCADE,
+    fecha_obtencion TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (id_usuario, id_logro)
+);
+
+CREATE TABLE IF NOT EXISTS usuario_logs (
+    id_log SERIAL PRIMARY KEY,
+    id_usuario INT,
+    accion VARCHAR(20),
+    fecha TIMESTAMP DEFAULT NOW(),
+    datos_anteriores JSONB,
+    datos_nuevos JSONB
+);
+
+-- Funciones y Triggers de Auditoría (Logs)
+
+CREATE OR REPLACE FUNCTION log_usuario_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO usuario_logs (id_usuario, accion, datos_nuevos)
+    VALUES (NEW.id_usuario, 'INSERT', to_jsonb(NEW));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION log_usuario_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO usuario_logs (id_usuario, accion, datos_anteriores, datos_nuevos)
+    VALUES (NEW.id_usuario, 'UPDATE', to_jsonb(OLD), to_jsonb(NEW));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION log_usuario_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO usuario_logs (id_usuario, accion, datos_anteriores)
+    VALUES (OLD.id_usuario, 'DELETE', to_jsonb(OLD));
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_usuario_insert
+AFTER INSERT ON usuarios
+FOR EACH ROW EXECUTE FUNCTION log_usuario_insert();
+
+CREATE TRIGGER trg_usuario_update
+AFTER UPDATE ON usuarios
+FOR EACH ROW EXECUTE FUNCTION log_usuario_update();
+
+CREATE TRIGGER trg_usuario_delete
+AFTER DELETE ON usuarios
+FOR EACH ROW EXECUTE FUNCTION log_usuario_delete();
+
+-- Función y Trigger para Creación Automática de Perfil y Preferencias
+
+CREATE OR REPLACE FUNCTION create_user_profile_and_preferences()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Crear Perfil por defecto (incluye avatar_url dinámico)
+    INSERT INTO perfiles (id_usuario, biografia, puntos_totales, racha_actual, racha_maxima, num_habitos_creados, habitos_completados, num_logros_obtenidos, meta_diaria, avatar_url)
+    VALUES (NEW.id_usuario, '', 0, 0, 0, 0, 0, 0, 3, 'https://api.dicebear.com/7.x/avataaars/svg?seed=' || NEW.username);
+
+    -- Crear Preferencias por defecto
+    INSERT INTO preferencias (id_usuario, modo_oscuro, notificaciones_push, notificaciones_email, zona_horaria, idioma)
+    VALUES (NEW.id_usuario, FALSE, FALSE, FALSE, 'UTC', 'es');
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_create_profile_prefs
+AFTER INSERT ON usuarios
+FOR EACH ROW
+EXECUTE FUNCTION create_user_profile_and_preferences();

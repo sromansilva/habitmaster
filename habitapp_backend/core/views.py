@@ -1,0 +1,160 @@
+from rest_framework import viewsets, status, generics, permissions
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from django.contrib.auth.hashers import check_password
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import Usuario, Perfil, Preferencia, Habito, UsuarioHabito, Logro, UsuarioLogro, UsuarioLog
+from .serializers import (
+    UsuarioSerializer, RegisterSerializer, LoginSerializer,
+    PerfilSerializer, PreferenciaSerializer, 
+    HabitoSerializer, UsuarioHabitoSerializer, LogroSerializer, 
+    UsuarioLogroSerializer, UsuarioLogSerializer
+)
+
+class RegisterView(generics.CreateAPIView):
+    queryset = Usuario.objects.all()
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = RegisterSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        # Return user data
+        user_serializer = UsuarioSerializer(user)
+        return Response(user_serializer.data, status=status.HTTP_201_CREATED)
+
+class LoginView(APIView):
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        username = serializer.validated_data['username']
+        password = serializer.validated_data['password']
+
+        try:
+            user = Usuario.objects.get(username=username)
+        except Usuario.DoesNotExist:
+            return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not check_password(password, user.password):
+            return Response({'error': 'Contraseña incorrecta'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': {
+                'id_usuario': user.id_usuario,
+                'username': user.username,
+                'email': user.email
+            }
+        })
+
+class UsuarioViewSet(viewsets.ModelViewSet):
+    queryset = Usuario.objects.all()
+    serializer_class = UsuarioSerializer
+
+class PerfilViewSet(viewsets.ModelViewSet):
+    queryset = Perfil.objects.all()
+    serializer_class = PerfilSerializer
+
+class PreferenciaViewSet(viewsets.ModelViewSet):
+    queryset = Preferencia.objects.all()
+    serializer_class = PreferenciaSerializer
+
+class HabitoViewSet(viewsets.ModelViewSet):
+    queryset = Habito.objects.all()
+    serializer_class = HabitoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Filter habits by the current user
+        user = self.request.user
+        return Habito.objects.filter(usuariohabito__usuario=user)
+
+    def perform_create(self, serializer):
+        # Create the habit
+        habito = serializer.save()
+        # Link it to the current user
+        UsuarioHabito.objects.create(usuario=self.request.user, habito=habito)
+        
+        # Update profile stats (num_habitos_creados)
+        try:
+            perfil = Perfil.objects.get(usuario=self.request.user)
+            perfil.num_habitos_creados += 1
+            perfil.save()
+        except Perfil.DoesNotExist:
+            pass
+
+class UsuarioHabitoViewSet(viewsets.ModelViewSet):
+    queryset = UsuarioHabito.objects.all()
+    serializer_class = UsuarioHabitoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class LogroViewSet(viewsets.ModelViewSet):
+    queryset = Logro.objects.all()
+    serializer_class = LogroSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class UsuarioLogroViewSet(viewsets.ModelViewSet):
+    queryset = UsuarioLogro.objects.all()
+    serializer_class = UsuarioLogroSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class UsuarioLogViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = UsuarioLog.objects.all()
+    serializer_class = UsuarioLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class UserProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            perfil = Perfil.objects.get(usuario=user)
+            preferencias = Preferencia.objects.get(usuario=user)
+            
+            return Response({
+                'user': {
+                    'id_usuario': user.id_usuario,
+                    'username': user.username,
+                    'email': user.email
+                },
+                'perfil': PerfilSerializer(perfil).data,
+                'preferencias': PreferenciaSerializer(preferencias).data
+            })
+        except (Perfil.DoesNotExist, Preferencia.DoesNotExist):
+            return Response({'error': 'Profile or Preferences not found'}, status=404)
+
+    def patch(self, request):
+        user = request.user
+        data = request.data
+        
+        # Update Profile
+        if 'perfil' in data:
+            try:
+                perfil = Perfil.objects.get(usuario=user)
+                perfil_serializer = PerfilSerializer(perfil, data=data['perfil'], partial=True)
+                if perfil_serializer.is_valid():
+                    perfil_serializer.save()
+            except Perfil.DoesNotExist:
+                pass
+
+        # Update Preferences
+        if 'preferencias' in data:
+            try:
+                pref = Preferencia.objects.get(usuario=user)
+                pref_serializer = PreferenciaSerializer(pref, data=data['preferencias'], partial=True)
+                if pref_serializer.is_valid():
+                    pref_serializer.save()
+            except Preferencia.DoesNotExist:
+                pass
+                
+        return self.get(request)
