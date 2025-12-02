@@ -28,12 +28,24 @@ class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
 
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=6)
+
 class PerfilSerializer(serializers.ModelSerializer):
     id_usuario = serializers.ReadOnlyField(source='usuario.id_usuario')
 
     class Meta:
         model = Perfil
         fields = ['id_usuario', 'biografia', 'puntos_totales', 'racha_actual', 'racha_maxima', 'num_habitos_creados', 'habitos_completados', 'num_logros_obtenidos', 'meta_diaria', 'avatar_url']
+
+class RankingSerializer(serializers.ModelSerializer):
+    username = serializers.ReadOnlyField(source='usuario.username')
+    id_usuario = serializers.ReadOnlyField(source='usuario.id_usuario')
+    
+    class Meta:
+        model = Perfil
+        fields = ['id_usuario', 'username', 'avatar_url', 'puntos_totales', 'racha_actual', 'habitos_completados']
 
 class PreferenciaSerializer(serializers.ModelSerializer):
     id_usuario = serializers.ReadOnlyField(source='usuario.id_usuario')

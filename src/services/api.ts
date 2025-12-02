@@ -55,13 +55,16 @@ const getHeaders = () => {
 
 export const api = {
     auth: {
-        async login(username: string, password: string): Promise<AuthResponse> {
+        async login(credentials: any): Promise<AuthResponse> {
             const response = await fetch(`${API_URL}/auth/login/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify(credentials),
             });
-            if (!response.ok) throw await response.json();
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Login failed');
+            }
             return response.json();
         },
 
@@ -81,6 +84,19 @@ export const api = {
                 headers: getHeaders(),
             });
             if (!response.ok) throw new Error('Failed to delete account');
+        },
+
+        async changePassword(data: any): Promise<any> {
+            const response = await fetch(`${API_URL}/auth/change-password/`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data),
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw error;
+            }
+            return response.json();
         }
     },
 
@@ -163,6 +179,16 @@ export const api = {
                 headers: getHeaders(),
             });
             if (!response.ok) throw new Error('Failed to delete habit');
+        }
+    },
+
+    ranking: {
+        async list(): Promise<any[]> {
+            const response = await fetch(`${API_URL}/ranking/`, {
+                headers: getHeaders(),
+            });
+            if (!response.ok) throw new Error('Failed to fetch ranking');
+            return response.json();
         }
     }
 };

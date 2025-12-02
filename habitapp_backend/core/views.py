@@ -6,10 +6,10 @@ from django.contrib.auth.hashers import check_password
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Usuario, Perfil, Preferencia, Habito, UsuarioHabito, Logro, UsuarioLogro, UsuarioLog
 from .serializers import (
-    UsuarioSerializer, RegisterSerializer, LoginSerializer,
+    UsuarioSerializer, RegisterSerializer, LoginSerializer, ChangePasswordSerializer,
     PerfilSerializer, PreferenciaSerializer, 
     HabitoSerializer, UsuarioHabitoSerializer, LogroSerializer, 
-    UsuarioLogroSerializer, UsuarioLogSerializer
+    UsuarioLogroSerializer, UsuarioLogSerializer, RankingSerializer
 )
 
 class RegisterView(generics.CreateAPIView):
@@ -55,6 +55,22 @@ class LoginView(APIView):
                 'email': user.email
             }
         })
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            user = request.user
+            if not check_password(serializer.data.get("old_password"), user.password):
+                return Response({"old_password": ["Contraseña incorrecta."]}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.set_password(serializer.data.get("new_password"))
+            user.save()
+            return Response({"status": "success", "message": "Contraseña actualizada correctamente."}, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
@@ -244,3 +260,15 @@ class UserProfileView(APIView):
                 pass
                 
         return self.get(request)
+
+    def delete(self, request):
+        user = request.user
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+        
+class RankingView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = RankingSerializer
+    
+    def get_queryset(self):
+        return Perfil.objects.select_related('usuario').all().order_by('-puntos_totales')

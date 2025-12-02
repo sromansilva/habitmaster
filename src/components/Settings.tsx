@@ -4,7 +4,6 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Alert, AlertDescription } from './ui/alert';
 import {
   Bell,
   Globe,
@@ -12,84 +11,12 @@ import {
   Shield,
   Trash2,
   LogOut,
-  Info,
-  Check,
   Download,
   Loader2
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { api, Preferences } from '../services/api';
 import type { Habit, UserProfile } from '../types';
-import { calculateTotalCompletions, calculateLevelProgress } from '../utils/habitCalculations';
-
-// Definición de logros (misma que en Achievements.tsx)
-const achievementDefinitions = [
-  // Streak Achievements
-  { id: '1', name: 'Primera Semana', description: 'Mantén una racha de 7 días consecutivos', icon: '🔥', category: 'Racha', requirement: 'racha_7', maxProgress: 7, pointsBonus: 50 },
-  { id: '2', name: 'Mes Imparable', description: 'Mantén una racha de 30 días consecutivos', icon: '⚡', category: 'Racha', requirement: 'racha_30', maxProgress: 30, pointsBonus: 200 },
-  { id: '3', name: 'Leyenda', description: 'Mantén una racha de 100 días consecutivos', icon: '👑', category: 'Racha', requirement: 'racha_100', maxProgress: 100, pointsBonus: 1000 },
-
-  // Habit Achievements
-  { id: '4', name: 'Coleccionista', description: 'Crea 5 hábitos diferentes', icon: '📝', category: 'Hábitos', requirement: 'habits_5', maxProgress: 5, pointsBonus: 100 },
-  { id: '5', name: 'Maestro de Hábitos', description: 'Crea 10 hábitos diferentes', icon: '🎯', category: 'Hábitos', requirement: 'habits_10', maxProgress: 10, pointsBonus: 250 },
-  { id: '16', name: 'Experto', description: 'Crea 20 hábitos diferentes', icon: '🎓', category: 'Hábitos', requirement: 'habits_20', maxProgress: 20, pointsBonus: 500 },
-
-  // Completion Achievements
-  { id: '6', name: 'Primeros Pasos', description: 'Completa 10 hábitos en total', icon: '✅', category: 'Completados', requirement: 'completed_10', maxProgress: 10, pointsBonus: 30 },
-  { id: '7', name: 'Consistencia', description: 'Completa 50 hábitos en total', icon: '💪', category: 'Completados', requirement: 'completed_50', maxProgress: 50, pointsBonus: 150 },
-  { id: '8', name: 'Imparable', description: 'Completa 100 hábitos en total', icon: '🚀', category: 'Completados', requirement: 'completed_100', maxProgress: 100, pointsBonus: 300 },
-  { id: '9', name: 'Campeón', description: 'Completa 500 hábitos en total', icon: '🏆', category: 'Completados', requirement: 'completed_500', maxProgress: 500, pointsBonus: 1500 },
-
-  // Points Achievements
-  { id: '10', name: 'Novato', description: 'Alcanza 100 puntos totales', icon: '⭐', category: 'Puntos', requirement: 'points_100', maxProgress: 100, pointsBonus: 20 },
-  { id: '11', name: 'Competidor', description: 'Alcanza 1000 puntos totales', icon: '💎', category: 'Puntos', requirement: 'points_1000', maxProgress: 1000, pointsBonus: 200 },
-  { id: '12', name: 'Maestro', description: 'Alcanza 5000 puntos totales', icon: '🌟', category: 'Puntos', requirement: 'points_5000', maxProgress: 5000, pointsBonus: 1000 },
-  { id: '17', name: 'Leyenda de Puntos', description: 'Alcanza 10000 puntos totales', icon: '💫', category: 'Puntos', requirement: 'points_10000', maxProgress: 10000, pointsBonus: 2500 },
-
-  // Special Achievements
-  { id: '13', name: 'Madrugador', description: 'Completa 10 hábitos antes de las 8 AM', icon: '🌅', category: 'Especial', requirement: 'early_bird_10', maxProgress: 10, pointsBonus: 150 },
-  { id: '14', name: 'Fin de Semana Activo', description: 'Completa todos tus hábitos un sábado y domingo', icon: '🎉', category: 'Especial', requirement: 'weekend_warrior', maxProgress: 1, pointsBonus: 100 },
-  { id: '15', name: 'Perfección', description: 'Completa todos tus hábitos del día por 7 días seguidos', icon: '✨', category: 'Especial', requirement: 'perfect_week', maxProgress: 7, pointsBonus: 500 },
-];
-
-// Función para calcular el progreso de logros
-function calculateAchievements(habits: Habit[], userProfile: UserProfile) {
-  const totalCompletions = calculateTotalCompletions(habits);
-  const habitsCount = habits.length;
-  const maxStreak = userProfile.maxStreak;
-  const totalPoints = userProfile.totalPoints;
-
-  return achievementDefinitions.map(def => {
-    let progress = 0;
-
-    // Calcular progreso según el tipo de logro
-    if (def.requirement.startsWith('racha_')) {
-      progress = Math.min(maxStreak, def.maxProgress);
-    } else if (def.requirement.startsWith('habits_')) {
-      progress = Math.min(habitsCount, def.maxProgress);
-    } else if (def.requirement.startsWith('completed_')) {
-      progress = Math.min(totalCompletions, def.maxProgress);
-    } else if (def.requirement.startsWith('points_')) {
-      progress = Math.min(totalPoints, def.maxProgress);
-    } else {
-      // Logros especiales - por ahora sin implementar
-      progress = 0;
-    }
-
-    const unlocked = progress >= def.maxProgress;
-
-    return {
-      ...def,
-      progress,
-      unlocked,
-      unlockedDate: unlocked ? new Date().toISOString().split('T')[0] : undefined,
-    };
-  });
-}
-
-
-
-// ... (imports remain the same)
 
 interface SettingsProps {
   darkMode: boolean;
@@ -122,8 +49,14 @@ export function Settings({
     language: preferences?.idioma ?? 'es',
   });
 
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  // Password Change State
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Sincronizar el estado local con los props cuando cambien
   useEffect(() => {
@@ -145,20 +78,29 @@ export function Settings({
       // 2. Update Global State (App.tsx)
       onUpdatePreferences({ [key]: value });
 
-      // 3. Update Local State
-      // (Handled by useEffect or specific handlers below)
-
-      // Show success feedback implicitly or explicitly if needed
     } catch (error) {
       console.error(`Error updating preference ${key}:`, error);
-      // Revert changes if needed
     }
   };
 
-  const handleSave = () => {
-    // Deprecated: Auto-save is now implemented
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+  const handleChangePassword = async () => {
+    if (!passwordForm.oldPassword || !passwordForm.newPassword) return;
+
+    setIsChangingPassword(true);
+    try {
+      await api.auth.changePassword({
+        old_password: passwordForm.oldPassword,
+        new_password: passwordForm.newPassword
+      });
+      alert('Contraseña actualizada correctamente');
+      setPasswordForm({ oldPassword: '', newPassword: '' });
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      const msg = error.old_password ? error.old_password[0] : (error.message || 'Error al actualizar la contraseña');
+      alert(msg);
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleDownloadPDF = async () => {
@@ -167,35 +109,154 @@ export function Settings({
     setIsGeneratingPDF(true);
     try {
       const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      let yPos = 20;
 
-      // Title
-      doc.setFontSize(20);
-      doc.text('HabitMaster - Reporte de Datos', 20, 20);
+      // --- Header ---
+      // Background for header
+      doc.setFillColor(59, 130, 246); // Blue-500
+      doc.rect(0, 0, pageWidth, 40, 'F');
 
-      // User Info
+      // Logo (Text for now)
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('HabitMaster', margin, 28);
+
+      // Date
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(new Date().toLocaleDateString(), pageWidth - margin, 28, { align: 'right' });
+
+      yPos = 60;
+
+      // --- User Info ---
+      doc.setTextColor(33, 33, 33);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Perfil de Usuario', margin, yPos);
+      yPos += 10;
+
       doc.setFontSize(12);
-      doc.text(`Usuario: ${userProfile.name}`, 20, 40);
-      doc.text(`Email: ${userProfile.email}`, 20, 50);
-      doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 20, 60);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Nombre de usuario: ${userProfile.name}`, margin, yPos);
+      yPos += 8;
+      doc.text(`Email: ${userProfile.email}`, margin, yPos);
+      yPos += 8;
+      if (userProfile.bio) {
+        doc.text(`Biografía: ${userProfile.bio}`, margin, yPos);
+        yPos += 8;
+      }
+      yPos += 10;
 
-      // Stats
-      doc.text('Estadísticas:', 20, 80);
-      doc.text(`Nivel: ${userProfile.level}`, 30, 90);
-      doc.text(`Puntos Totales: ${userProfile.totalPoints}`, 30, 100);
-      doc.text(`Racha Actual: ${userProfile.currentStreak} días`, 30, 110);
-      doc.text(`Hábitos Completados: ${userProfile.habitsCompleted}`, 30, 120);
+      // --- Stats ---
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Estadísticas', margin, yPos);
+      yPos += 10;
 
-      // Habits List
-      doc.text('Mis Hábitos:', 20, 140);
-      let yPos = 150;
-      habits.forEach((habit) => {
-        if (yPos > 280) {
+      // Draw a box for stats
+      const statBoxWidth = (pageWidth - (margin * 3)) / 2;
+      const statBoxHeight = 25;
+
+      // Row 1
+      doc.setDrawColor(200, 200, 200);
+      doc.setFillColor(249, 250, 251); // Gray-50
+
+      // Stat 1: Nivel
+      doc.rect(margin, yPos, statBoxWidth, statBoxHeight, 'FD');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Nivel', margin + 5, yPos + 8);
+      doc.setFontSize(14);
+      doc.setTextColor(33, 33, 33);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${userProfile.level}`, margin + 5, yPos + 18);
+
+      // Stat 2: Puntos
+      doc.rect(margin + statBoxWidth + margin, yPos, statBoxWidth, statBoxHeight, 'FD');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text('Puntos Totales', margin + statBoxWidth + margin + 5, yPos + 8);
+      doc.setFontSize(14);
+      doc.setTextColor(33, 33, 33);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${userProfile.totalPoints}`, margin + statBoxWidth + margin + 5, yPos + 18);
+
+      yPos += statBoxHeight + 5;
+
+      // Row 2
+      // Stat 3: Racha
+      doc.rect(margin, yPos, statBoxWidth, statBoxHeight, 'FD');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text('Racha Actual', margin + 5, yPos + 8);
+      doc.setFontSize(14);
+      doc.setTextColor(33, 33, 33);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${userProfile.currentStreak} días`, margin + 5, yPos + 18);
+
+      // Stat 4: Completados
+      doc.rect(margin + statBoxWidth + margin, yPos, statBoxWidth, statBoxHeight, 'FD');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text('Hábitos Completados', margin + statBoxWidth + margin + 5, yPos + 8);
+      doc.setFontSize(14);
+      doc.setTextColor(33, 33, 33);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${userProfile.habitsCompleted}`, margin + statBoxWidth + margin + 5, yPos + 18);
+
+      yPos += statBoxHeight + 20;
+
+      // --- Habits List ---
+      doc.setFontSize(16);
+      doc.setTextColor(33, 33, 33);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Mis Hábitos', margin, yPos);
+      yPos += 10;
+
+      // Table Header
+      doc.setFillColor(229, 231, 235); // Gray-200
+      doc.rect(margin, yPos, pageWidth - (margin * 2), 10, 'F');
+      doc.setFontSize(10);
+      doc.text('Hábito', margin + 5, yPos + 7);
+      doc.text('Categoría', margin + 80, yPos + 7);
+      doc.text('Puntos', margin + 130, yPos + 7);
+      yPos += 10;
+
+      // Table Body
+      doc.setFont('helvetica', 'normal');
+      habits.forEach((habit, index) => {
+        if (yPos > 270) {
           doc.addPage();
           yPos = 20;
         }
-        doc.text(`- ${habit.name} (${habit.category})`, 30, yPos);
+
+        // Zebra striping
+        if (index % 2 === 1) {
+          doc.setFillColor(249, 250, 251);
+          doc.rect(margin, yPos, pageWidth - (margin * 2), 10, 'F');
+        }
+
+        doc.text(habit.name, margin + 5, yPos + 7);
+        doc.text(habit.category, margin + 80, yPos + 7);
+        doc.text(`${habit.points} pts`, margin + 130, yPos + 7);
+
         yPos += 10;
       });
+
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Página ${i} de ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+      }
 
       doc.save('habitmaster-data.pdf');
     } catch (error) {
@@ -209,14 +270,7 @@ export function Settings({
   const handleDeleteAccount = async () => {
     if (window.confirm('¿Estás SEGURO de que quieres eliminar tu cuenta? Esta acción es irreversible y perderás todos tus datos.')) {
       try {
-        // Assuming api.user.deleteAccount exists or similar
-        // If not, we might need to implement it or use a placeholder
-        // For now, let's assume we need to implement it in api.ts if it's missing
-        // But based on previous context, we might not have it yet.
-        // Let's check api.ts first, but for now I'll put a placeholder alert if not found
-        // actually, I'll check api.ts in the next step, but I can write the code assuming it will be there or I'll add it.
-        // Let's use a safe fallback for now.
-        await api.auth.deleteAccount(); // We will verify this exists
+        await api.auth.deleteAccount();
         onLogout();
       } catch (error) {
         console.error('Error deleting account:', error);
@@ -227,13 +281,21 @@ export function Settings({
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-4xl">
-      {/* ... (Header and Alert remain the same) */}
-
       <div className="space-y-6">
         {/* Notifications */}
         <Card className="card-settings-section dark:bg-neutral-800 dark:border-neutral-700">
           <CardHeader>
-            {/* ... */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <Bell className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <CardTitle className="dark:text-white">Notificaciones</CardTitle>
+                <CardDescription className="dark:text-neutral-300">
+                  Gestiona cómo recibes las alertas
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -265,12 +327,9 @@ export function Settings({
                 id="push-notifications"
                 checked={settings.pushNotifications}
                 onCheckedChange={(checked) => {
-                  // Actualizar estado local y global
                   setSettings({ ...settings, pushNotifications: checked });
                   onPushNotificationsChange(checked);
                   localStorage.setItem('habitmaster_pushnotifications', checked.toString());
-
-                  // Actualizar Backend
                   handlePreferenceUpdate('notificaciones_push', checked);
                 }}
                 className="switch-setting"
@@ -282,7 +341,17 @@ export function Settings({
         {/* Appearance */}
         <Card className="card-settings-section dark:bg-neutral-800 dark:border-neutral-700">
           <CardHeader>
-            {/* ... */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <Moon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <CardTitle className="dark:text-white">Apariencia</CardTitle>
+                <CardDescription className="dark:text-neutral-300">
+                  Personaliza la interfaz visual
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -298,8 +367,6 @@ export function Settings({
                 onCheckedChange={(checked) => {
                   setSettings({ ...settings, darkMode: checked });
                   onDarkModeChange(checked);
-
-                  // Actualizar Backend
                   handlePreferenceUpdate('modo_oscuro', checked);
                 }}
                 className="switch-setting"
@@ -311,7 +378,17 @@ export function Settings({
         {/* Localization */}
         <Card className="card-settings-section dark:bg-neutral-800 dark:border-neutral-700">
           <CardHeader>
-            {/* ... */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <CardTitle className="dark:text-white">Idioma y Región</CardTitle>
+                <CardDescription className="dark:text-neutral-300">
+                  Ajusta tus preferencias regionales
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -323,7 +400,6 @@ export function Settings({
                   handlePreferenceUpdate('zona_horaria', value);
                 }}
               >
-                {/* ... (Select items remain the same) */}
                 <SelectTrigger id="timezone" className="select-timezone dark:bg-neutral-900 dark:border-neutral-600">
                   <SelectValue />
                 </SelectTrigger>
@@ -351,7 +427,6 @@ export function Settings({
                   handlePreferenceUpdate('idioma', value);
                 }}
               >
-                {/* ... (Select items remain the same) */}
                 <SelectTrigger id="language" className="select-language dark:bg-neutral-900 dark:border-neutral-600">
                   <SelectValue />
                 </SelectTrigger>
@@ -388,9 +463,47 @@ export function Settings({
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-3">
                   Actualiza tu contraseña para mantener tu cuenta segura
                 </p>
-                <Button variant="outline" size="sm" className="btn-change-password">
-                  Cambiar contraseña
-                </Button>
+
+                <div className="space-y-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="current-password">Contraseña actual</Label>
+                    <input
+                      id="current-password"
+                      type="password"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="********"
+                      value={passwordForm.oldPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="new-password">Nueva contraseña</Label>
+                    <input
+                      id="new-password"
+                      type="password"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="********"
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="btn-change-password"
+                    onClick={handleChangePassword}
+                    disabled={isChangingPassword || !passwordForm.oldPassword || !passwordForm.newPassword}
+                  >
+                    {isChangingPassword ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Actualizando...
+                      </>
+                    ) : (
+                      'Actualizar contraseña'
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-neutral-200">
@@ -421,14 +534,6 @@ export function Settings({
             </div>
           </CardContent>
         </Card>
-
-        {/* Save Button */}
-        <div className="flex justify-end">
-          <Button onClick={handleSave} className="btn-save-settings gap-2">
-            <Check className="w-4 h-4" />
-            Guardar cambios
-          </Button>
-        </div>
 
         {/* Danger Zone */}
         <Card className="card-danger-zone border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 dark:bg-neutral-800">

@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { api } from '../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -129,24 +130,37 @@ export function Ranking({ habits, userProfile }: RankingProps) {
   const userWeeklyPoints = useMemo(() => calculateWeeklyPoints(habits), [habits]);
   const userWeeklyCompletions = useMemo(() => calculateWeeklyCompletions(habits), [habits]);
 
-  // TODO: Cuando se integre el backend, usar:
-  // const { data: rankingData, isLoading, error } = useFetchRanking();
+  // Fetch ranking data from backend
+  const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Por ahora, crear entrada solo del usuario actual (sin datos mock)
-  const rankingData = useMemo(() => {
-    const userEntry: RankingEntry = {
-      id: 'current-user',
-      position: 1, // TODO: Obtener desde el backend
-      name: userProfile.name,
-      avatar: userProfile.avatar,
-      points: userProfile.totalPoints,
-      habitsCompleted: userWeeklyCompletions,
-      streak: userProfile.currentStreak,
-      isCurrentUser: true,
+  useEffect(() => {
+    const fetchRanking = async () => {
+      try {
+        const data = await api.ranking.list();
+
+        // Map backend data to RankingEntry
+        const mappedRanking: RankingEntry[] = data.map((entry: any, index: number) => ({
+          id: entry.id_usuario.toString(),
+          position: index + 1,
+          name: entry.username,
+          avatar: entry.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${entry.username}`,
+          points: entry.puntos_totales,
+          habitsCompleted: entry.habitos_completados,
+          streak: entry.racha_actual,
+          isCurrentUser: entry.username === userProfile.name // Assuming unique usernames
+        }));
+
+        setRankingData(mappedRanking);
+      } catch (error) {
+        console.error('Error fetching ranking:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    return [userEntry];
-  }, [userProfile, userWeeklyCompletions]);
+    fetchRanking();
+  }, [userProfile.name]);
 
   const currentUser = rankingData.find(u => u.isCurrentUser);
 
@@ -192,7 +206,7 @@ export function Ranking({ habits, userProfile }: RankingProps) {
                   <div>
                     <p className="text-blue-100 text-xs sm:text-sm mb-1">Tu posición</p>
                     <p className="text-white text-lg sm:text-xl">
-                      {hasRankingData ? `#${currentUser.position}` : 'Esperando datos...'}
+                      {isLoading ? 'Cargando...' : (hasRankingData ? `#${currentUser.position}` : 'N/A')}
                     </p>
                   </div>
                 </div>
@@ -279,10 +293,10 @@ export function Ranking({ habits, userProfile }: RankingProps) {
               <Card
                 key={user.id}
                 className={`card-podium ${user.position === 1
-                    ? 'bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-2 border-yellow-300 dark:border-yellow-700 dark:bg-neutral-800'
-                    : user.position === 2
-                      ? 'bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900/20 dark:to-slate-900/20 border-2 border-gray-300 dark:border-gray-700 dark:bg-neutral-800'
-                      : 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-2 border-orange-300 dark:border-orange-700 dark:bg-neutral-800'
+                  ? 'bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-2 border-yellow-300 dark:border-yellow-700 dark:bg-neutral-800'
+                  : user.position === 2
+                    ? 'bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900/20 dark:to-slate-900/20 border-2 border-gray-300 dark:border-gray-700 dark:bg-neutral-800'
+                    : 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-2 border-orange-300 dark:border-orange-700 dark:bg-neutral-800'
                   }`}
               >
                 <CardContent className="p-4 sm:p-6 text-center space-y-4">
@@ -329,8 +343,8 @@ export function Ranking({ habits, userProfile }: RankingProps) {
                   <div
                     key={user.id}
                     className={`ranking-item flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg transition-colors ${user.isCurrentUser
-                        ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-300 dark:border-blue-700'
-                        : 'bg-neutral-50 dark:bg-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-600'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-300 dark:border-blue-700'
+                      : 'bg-neutral-50 dark:bg-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-600'
                       }`}
                   >
                     {/* Position */}

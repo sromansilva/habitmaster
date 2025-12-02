@@ -4,7 +4,7 @@ from .views import (
     UsuarioViewSet, PerfilViewSet, PreferenciaViewSet, 
     HabitoViewSet, UsuarioHabitoViewSet, LogroViewSet, 
     UsuarioLogroViewSet, UsuarioLogViewSet,
-    RegisterView, LoginView, UserProfileView
+    RegisterView, LoginView, UserProfileView, RankingView, ChangePasswordView
 )
 
 router = DefaultRouter()
@@ -21,5 +21,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('user/me/', UserProfileView.as_view(), name='user-profile'),
+    path('ranking/', RankingView.as_view(), name='ranking'),
 ]

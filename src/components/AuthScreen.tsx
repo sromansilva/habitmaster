@@ -51,7 +51,7 @@ export function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
         await api.auth.register(registerName, registerEmail, registerPassword);
 
         // 2. Auto-login after register
-        const data = await api.auth.login(registerName, registerPassword);
+        const data = await api.auth.login({ username: registerName, password: registerPassword });
 
         // 3. Save tokens
         localStorage.setItem('accessToken', data.access);
@@ -63,7 +63,7 @@ export function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
 
       } else {
         // Login
-        const data = await api.auth.login(loginEmail, loginPassword); // Note: loginEmail is actually username in backend, need to fix UI or Backend
+        const data = await api.auth.login({ username: loginEmail, password: loginPassword });
         // Wait, backend expects 'username'. The UI asks for 'email'.
         // User might type email or username. 
         // Let's assume for now the user types their username in the "Email" field or we change the label.

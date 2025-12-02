@@ -82,79 +82,77 @@ export default function App() {
     dailyGoal: 3,
   });
 
+  const fetchUserData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch User Data
+      const { user, perfil, preferencias: userPreferences } = await api.user.getMe();
+
+      setUserProfile({
+        name: user.username,
+        email: user.email,
+        bio: perfil.biografia || '',
+        avatar: perfil.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + user.username,
+        totalPoints: perfil.puntos_totales,
+        level: calculateLevel(perfil.puntos_totales),
+        currentStreak: perfil.racha_actual,
+        maxStreak: perfil.racha_maxima,
+        memberSince: new Date().toISOString(),
+        unlockedAchievements: [],
+        achievementPoints: 0,
+        dailyGoal: perfil.meta_diaria || 3,
+      });
+
+      // Set Preferences
+      setPreferences(userPreferences);
+      setDarkMode(userPreferences.modo_oscuro);
+      setPushNotifications(userPreferences.notificaciones_push);
+
+      // Fetch Habits
+      const apiHabits = await api.habits.list();
+      const mappedHabits: Habit[] = apiHabits.map(h => ({
+        id: h.id_habito.toString(),
+        name: h.nombre,
+        description: h.descripcion,
+        category: h.categoria,
+        frequency: h.dias ? h.dias.split(',').length : 7,
+        completedDates: h.estado === 'completado' ? [h.fecha] : [],
+        streak: 0,
+        lastCompleted: h.estado === 'completado' ? h.fecha : null,
+        createdAt: new Date().toISOString(),
+        points: h.puntos
+      }));
+      setHabits(mappedHabits);
+      setIsAuthenticated(true);
+      setCurrentScreen('dashboard');
+
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      // If error (e.g. 401), logout and CLEAR TOKEN to prevent loop
+      handleLogout();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Cargar perfil y datos del backend
   useEffect(() => {
-    const loadUserData = async () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        setIsAuthenticated(false);
-        setCurrentScreen('landing');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        // Fetch User Data
-        const { user, perfil, preferencias: userPreferences } = await api.user.getMe();
-
-        // Only set authenticated AFTER successful fetch
-        setIsAuthenticated(true);
-        setCurrentScreen('dashboard');
-
-        setUserProfile({
-          name: user.username,
-          email: user.email,
-          bio: perfil.biografia || '',
-          avatar: perfil.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + user.username,
-          totalPoints: perfil.puntos_totales,
-          level: calculateLevel(perfil.puntos_totales),
-          currentStreak: perfil.racha_actual,
-          maxStreak: perfil.racha_maxima,
-          memberSince: new Date().toISOString(),
-          unlockedAchievements: [],
-          achievementPoints: 0,
-          dailyGoal: perfil.meta_diaria || 3,
-        });
-
-        // Set Preferences
-        setPreferences(userPreferences);
-        setDarkMode(userPreferences.modo_oscuro);
-        setPushNotifications(userPreferences.notificaciones_push);
-
-        // Fetch Habits
-        const apiHabits = await api.habits.list();
-        const mappedHabits: Habit[] = apiHabits.map(h => ({
-          id: h.id_habito.toString(),
-          name: h.nombre,
-          description: h.descripcion,
-          category: h.categoria,
-          frequency: h.dias ? h.dias.split(',').length : 7,
-          completedDates: h.estado === 'completado' ? [h.fecha] : [],
-          streak: 0,
-          lastCompleted: h.estado === 'completado' ? h.fecha : null,
-          createdAt: new Date().toISOString(),
-          points: h.puntos
-        }));
-        setHabits(mappedHabits);
-        setIsLoading(false);
-
-      } catch (error) {
-        console.error('Error loading user data:', error);
-        // If error (e.g. 401), logout and CLEAR TOKEN to prevent loop
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        setIsLoading(false);
-        handleLogout();
-      }
-    };
-
-    loadUserData();
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setIsAuthenticated(false);
+      setCurrentScreen('landing');
+      setIsLoading(false);
+      return;
+    }
+    fetchUserData();
   }, []); // Empty dependency array: run only once on mount
 
   // Guardar perfil en localStorage cuando cambie
   useEffect(() => {
-    localStorage.setItem('habitmaster_profile', JSON.stringify(userProfile));
-  }, [userProfile]);
+    if (isAuthenticated) {
+      localStorage.setItem('habitmaster_profile', JSON.stringify(userProfile));
+    }
+  }, [userProfile, isAuthenticated]);
 
   // Cargar dark mode y notificaciones del localStorage al iniciar
   useEffect(() => {
@@ -188,9 +186,17 @@ export default function App() {
   // Cargar hábitos del localStorage al iniciar
   useEffect(() => {
     const savedHabits = localStorage.getItem('habitmaster_habits');
-    if (savedHabits) {
+    if (savedHabits && !isAuthenticated && habits.length === 0) {
+      // Only load from LS if NOT authenticated (e.g. offline mode?) 
+      // But we are moving to backend first. 
+      // If we are authenticated, fetchUserData handles it.
+      // If we are NOT authenticated, we shouldn't show habits.
+      // So this effect might be redundant or conflicting if it overwrites backend data with stale LS data.
+      // I will modify it to only run if we don't have habits yet and we are NOT loading from backend?
+      // Actually, let's trust fetchUserData for authenticated users.
       try {
-        setHabits(JSON.parse(savedHabits));
+        // setHabits(JSON.parse(savedHabits)); 
+        // Commenting out to prefer backend data
       } catch (error) {
         console.error('Error loading habits:', error);
       }
@@ -199,10 +205,10 @@ export default function App() {
 
   // Guardar hábitos en localStorage cuando cambien
   useEffect(() => {
-    if (habits.length > 0 || localStorage.getItem('habitmaster_habits')) {
+    if (isAuthenticated && (habits.length > 0 || localStorage.getItem('habitmaster_habits'))) {
       localStorage.setItem('habitmaster_habits', JSON.stringify(habits));
     }
-  }, [habits]);
+  }, [habits, isAuthenticated]);
 
   // Actualizar estadísticas del perfil cuando cambien los hábitos
   useEffect(() => {
@@ -311,28 +317,40 @@ export default function App() {
   };
 
   const handleLogin = (name?: string, email?: string) => {
-    // Si se proporciona nombre y email, actualizar el perfil (registro)
-    if (name && email) {
-      setUserProfile(prev => ({
-        ...prev,
-        name,
-        email,
-      }));
-    } else if (email) {
-      // Solo email (login), actualizar solo el email
-      setUserProfile(prev => ({
-        ...prev,
-        email,
-      }));
-    }
-
-    setIsAuthenticated(true);
-    setCurrentScreen('dashboard');
+    // Trigger data fetch after login
+    fetchUserData();
   };
 
   const handleLogout = () => {
+    // Clear all local storage
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('habitmaster_profile');
+    localStorage.removeItem('habitmaster_habits');
+    // We can keep darkmode/push prefs if we want, or clear them. 
+    // User asked to "borre la cache local".
+    // localStorage.removeItem('habitmaster_darkmode'); 
+    // localStorage.removeItem('habitmaster_pushnotifications');
+
+    // Reset State
     setIsAuthenticated(false);
     setCurrentScreen('landing');
+    setHabits([]);
+    setUserProfile({
+      name: '',
+      email: '',
+      bio: '',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Default',
+      totalPoints: 0,
+      level: 1,
+      currentStreak: 0,
+      maxStreak: 0,
+      memberSince: new Date().toISOString(),
+      unlockedAchievements: [],
+      achievementPoints: 0,
+      dailyGoal: 3,
+    });
   };
 
   const handleEditHabit = (habitId: string) => {

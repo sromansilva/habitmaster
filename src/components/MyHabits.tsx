@@ -88,7 +88,7 @@ export function MyHabits({ habits, onCreateHabit, onEditHabit, onDeleteHabit }: 
         </div>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
           <Card className="card-stat-small dark:bg-neutral-800 dark:border-neutral-700">
             <CardContent className="p-3 sm:p-4">
               <div className="space-y-1">
@@ -115,17 +115,6 @@ export function MyHabits({ habits, onCreateHabit, onEditHabit, onDeleteHabit }: 
                 <p className="text-neutral-600 dark:text-neutral-300 text-xs sm:text-sm">Progreso semanal</p>
                 <p className="text-neutral-900 dark:text-white truncate">
                   {totalWeeklyCompleted}/{totalWeeklyTarget}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-stat-small dark:bg-neutral-800 dark:border-neutral-700">
-            <CardContent className="p-3 sm:p-4">
-              <div className="space-y-1">
-                <p className="text-neutral-600 dark:text-neutral-300 text-xs sm:text-sm">Racha más larga</p>
-                <p className="text-neutral-900 dark:text-white truncate">
-                  {longestStreak} días
                 </p>
               </div>
             </CardContent>
