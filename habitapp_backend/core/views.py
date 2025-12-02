@@ -211,6 +211,14 @@ class UserProfileView(APIView):
         user = request.user
         data = request.data
         
+        # Update User (username, email)
+        if 'user' in data:
+            user_serializer = UsuarioSerializer(user, data=data['user'], partial=True)
+            if user_serializer.is_valid():
+                user_serializer.save()
+            else:
+                return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         # Update Profile
         if 'perfil' in data:
             try:
@@ -218,6 +226,8 @@ class UserProfileView(APIView):
                 perfil_serializer = PerfilSerializer(perfil, data=data['perfil'], partial=True)
                 if perfil_serializer.is_valid():
                     perfil_serializer.save()
+                else:
+                    return Response(perfil_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             except Perfil.DoesNotExist:
                 pass
 
@@ -228,6 +238,8 @@ class UserProfileView(APIView):
                 pref_serializer = PreferenciaSerializer(pref, data=data['preferencias'], partial=True)
                 if pref_serializer.is_valid():
                     pref_serializer.save()
+                else:
+                    return Response(pref_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             except Preferencia.DoesNotExist:
                 pass
                 

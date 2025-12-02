@@ -93,11 +93,11 @@ export const api = {
             return response.json();
         },
 
-        async updateProfile(data: Partial<Profile>): Promise<{ user: User, perfil: Profile, preferencias: Preferences }> {
+        async updateProfile(data: { user?: Partial<User>, perfil?: Partial<Profile>, preferencias?: Partial<Preferences> }): Promise<{ user: User, perfil: Profile, preferencias: Preferences }> {
             const response = await fetch(`${API_URL}/user/me/`, {
                 method: 'PATCH',
                 headers: getHeaders(),
-                body: JSON.stringify({ perfil: data }),
+                body: JSON.stringify(data),
             });
             if (!response.ok) throw new Error('Failed to update profile');
             return response.json();

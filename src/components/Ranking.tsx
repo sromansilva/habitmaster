@@ -49,72 +49,6 @@ import type { Habit, UserProfile } from '../types';
  * 
  * Database Schema (Neon PostgreSQL):
  * 
- * -- Tabla de usuarios
- * CREATE TABLE users (
- *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
- *   email VARCHAR(255) UNIQUE NOT NULL,
- *   name VARCHAR(255) NOT NULL,
- *   avatar TEXT,
- *   bio TEXT,
- *   created_at TIMESTAMP DEFAULT NOW(),
- *   updated_at TIMESTAMP DEFAULT NOW()
- * );
- * 
- * -- Tabla de estadísticas del usuario
- * CREATE TABLE user_stats (
- *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
- *   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
- *   total_points INTEGER DEFAULT 0,
- *   achievement_points INTEGER DEFAULT 0,
- *   current_streak INTEGER DEFAULT 0,
- *   max_streak INTEGER DEFAULT 0,
- *   level INTEGER DEFAULT 1,
- *   updated_at TIMESTAMP DEFAULT NOW(),
- *   UNIQUE(user_id)
- * );
- * 
- * -- Tabla de estadísticas semanales (para ranking)
- * CREATE TABLE weekly_stats (
- *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
- *   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
- *   week_start DATE NOT NULL,
- *   points_earned INTEGER DEFAULT 0,
- *   habits_completed INTEGER DEFAULT 0,
- *   created_at TIMESTAMP DEFAULT NOW(),
- *   UNIQUE(user_id, week_start)
- * );
- * 
- * -- Índices para optimizar queries
- * CREATE INDEX idx_user_stats_total_points ON user_stats(total_points DESC);
- * CREATE INDEX idx_weekly_stats_week ON weekly_stats(week_start DESC);
- * CREATE INDEX idx_weekly_stats_points ON weekly_stats(week_start, points_earned DESC);
- * 
- * Queries SQL útiles:
- * 
- * -- Obtener ranking global
- * SELECT 
- *   u.id, u.name, u.avatar,
- *   us.total_points, us.current_streak, us.level,
- *   RANK() OVER (ORDER BY us.total_points DESC) as position
- * FROM users u
- * JOIN user_stats us ON u.id = us.user_id
- * ORDER BY us.total_points DESC
- * LIMIT 50;
- * 
- * -- Obtener ranking semanal
- * SELECT 
- *   u.id, u.name, u.avatar,
- *   ws.points_earned as weekly_points,
- *   ws.habits_completed as weekly_completions,
- *   us.current_streak,
- *   RANK() OVER (ORDER BY ws.points_earned DESC) as position
- * FROM users u
- * JOIN weekly_stats ws ON u.id = ws.user_id
- * JOIN user_stats us ON u.id = us.user_id
- * WHERE ws.week_start = (SELECT MAX(week_start) FROM weekly_stats)
- * ORDER BY ws.points_earned DESC
- * LIMIT 50;
- */
 
 interface RankingProps {
   habits: Habit[];
@@ -124,6 +58,7 @@ interface RankingProps {
   // isLoading?: boolean;
   // error?: string | null;
 }
+*/
 
 interface RankingEntry {
   id: string;

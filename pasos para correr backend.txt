@@ -1,0 +1,74 @@
+# Django Backend Walkthrough
+
+The `habitapp_backend` has been generated with a `core` app that maps to your existing PostgreSQL schema.
+
+## Prerequisites
+- Python 3.10+
+- PostgreSQL database (Neon)
+
+## Setup Instructions
+
+1.  **Navigate to the backend directory:**
+    ```bash
+    cd habitapp_backend
+    ```
+
+2.  **Create and activate a virtual environment:**
+    ```bash
+    python -m venv venv
+    # Windows
+    venv\Scripts\activate
+    # Linux/Mac
+    source venv/bin/activate
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Configure Environment Variables:**  Puedes omitir este paso
+    Create a [.env](file:///c:/Users/HailQueso/Desktop/habitmaster/habitapp_backend/.env) file in `habitapp_backend/` (next to [manage.py](file:///c:/Users/HailQueso/Desktop/habitmaster/habitapp_backend/manage.py)) with your database URL:
+    ```env
+    DATABASE_URL=postgresql://USER:PASSWORD@HOST/neondb?sslmode=require
+    SECRET_KEY=your-secret-key-here
+    DEBUG=True
+    ```
+
+5.  **Run Migrations:**
+    Even though `managed = False`, it's good practice to create the initial migration state.
+    ```bash
+    python manage.py makemigrations
+    python manage.py migrate
+    ```
+    *Note: Since tables exist, `migrate` will mostly just set up Django internal tables (admin, auth, contenttypes).*
+
+6.  **Run the Server:**
+    ```bash
+    python manage.py runserver
+    ```
+
+7. Crear otra terminal y correr el frontend
+    ```bash
+    npm run dev
+    ```
+
+
+## API Endpoints
+
+The API is available at `/api/`.
+
+-   **Users**: `/api/usuarios/`
+    -   `POST /api/auth/register/`: Register a new user.
+        -   Body: `{ "username": "...", "email": "...", "password": "..." }`
+    -   `POST /api/auth/login/`: Login to get JWT tokens.
+        -   Body: `{ "username": "...", "password": "..." }`
+        -   Response: `{ "access": "...", "refresh": "...", "user": { ... } }`
+-   **Profiles**: `/api/perfiles/`
+-   **Habits**: `/api/habitos/`
+-   **Preferences**: `/api/preferencias/`
+-   **Achievements**: `/api/logros/`
+-   **Logs**: `/api/logs/` (ReadOnly)
+
+## Signals & Logging
+Django signals are configured in [core/signals.py](file:///c:/Users/HailQueso/Desktop/habitmaster/habitapp_backend/core/signals.py) to log INSERT, UPDATE, and DELETE actions on the [Usuario](file:///c:/Users/HailQueso/Desktop/habitmaster/habitapp_backend/core/models.py#4-17) model to the `usuario_logs` table, mirroring the SQL triggers.

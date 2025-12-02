@@ -495,7 +495,20 @@ export default function App() {
     try {
       // Map frontend profile to backend structure
       const backendUpdates: any = {};
-      if (updates.bio !== undefined) backendUpdates.perfil = { biografia: updates.bio };
+
+      // User updates (name -> username, email -> email)
+      if (updates.name || updates.email) {
+        backendUpdates.user = {};
+        if (updates.name) backendUpdates.user.username = updates.name;
+        if (updates.email) backendUpdates.user.email = updates.email;
+      }
+
+      // Profile updates (bio -> biografia, avatar -> avatar_url)
+      if (updates.bio !== undefined || updates.avatar !== undefined) {
+        backendUpdates.perfil = {};
+        if (updates.bio !== undefined) backendUpdates.perfil.biografia = updates.bio;
+        if (updates.avatar !== undefined) backendUpdates.perfil.avatar_url = updates.avatar;
+      }
 
       // Handle preferences updates if they were part of UserProfile (they are separate in backend)
       // For now, we assume updates coming here are mostly profile related.
