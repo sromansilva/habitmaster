@@ -1,4 +1,4 @@
-export type Screen = 'landing' | 'auth' | 'dashboard' | 'habits' | 'habit-form' | 'progress' | 'ranking' | 'profile' | 'achievements' | 'settings';
+export type Screen = 'landing' | 'auth' | 'dashboard' | 'habits' | 'habit-form' | 'progress' | 'ranking' | 'profile' | 'achievements' | 'settings' | 'prolog';
 
 export interface Habit {
     id: string;

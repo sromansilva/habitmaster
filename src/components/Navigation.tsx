@@ -6,7 +6,8 @@ import {
   Trophy,
   User,
   Award,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Brain
 } from 'lucide-react';
 import type { Screen } from '../types';
 
@@ -35,6 +36,7 @@ const navItems = [
   { screen: 'ranking' as Screen, label: 'Ranking', icon: Trophy },
   { screen: 'achievements' as Screen, label: 'Logros', icon: Award },
   { screen: 'profile' as Screen, label: 'Perfil', icon: User },
+  { screen: 'prolog' as Screen, label: 'Prolog Demo', icon: Brain },
   { screen: 'settings' as Screen, label: 'Ajustes', icon: SettingsIcon },
 ];
 

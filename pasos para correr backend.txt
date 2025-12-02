@@ -48,7 +48,7 @@ The `habitapp_backend` has been generated with a `core` app that maps to your ex
     python manage.py runserver
     ```
 
-7. Crear otra terminal y correr el frontend
+7. Crear otra terminal sin cerrar la anterior y correr el frontend
     ```bash
     npm run dev
     ```

@@ -16,37 +16,6 @@ import {
 import { checkUnlockedAchievements, detectNewAchievements } from './utils/achievementChecker';
 import { getAchievementById } from './utils/achievementDefinitions';
 
-/**
- * BACKEND INTEGRATION GUIDE
- * =========================
- * 
- * Este archivo es el punto principal de la aplicación.
- * Actualmente usa localStorage para persistencia, pero está preparado para backend.
- * 
- * PASOS PARA INTEGRACIÓN:
- * 
- * 1. Reemplazar localStorage con llamadas a API:
- *    - useEffect línea 75: Cambiar por fetch GET /api/users/me
- *    - useEffect línea 119: Cambiar por fetch GET /api/habits
- *    - Cada setHabits: Llamar también a POST/PATCH/DELETE /api/habits
- * 
- * 2. Implementar autenticación real:
- *    - handleLogin: Llamar a POST /api/auth/login
- *    - Guardar JWT token en localStorage
- *    - Agregar token en headers de todas las peticiones
- * 
- * 3. Sincronización de logros:
- *    - Cuando se detecte nuevo logro, hacer POST /api/achievements/unlock
- *    - Backend debe verificar y otorgar puntos
- * 
- * 4. Manejo de estado de carga:
- *    - Agregar estados: isLoadingUser, isLoadingHabits
- *    - Mostrar skeletons mientras carga
- * 
- * Estructura de datos esperada del backend:
- * - Ver /BACKEND_INTEGRATION.md para detalles completos
- */
-
 import { Screen, Habit, UserProfile } from './types';
 
 export default function App() {
@@ -66,10 +35,9 @@ export default function App() {
     idioma: 'es',
   });
 
-  // TODO BACKEND: Este estado debe poblarse desde la base de datos (GET /api/users/me)
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    name: '', // Se llenará al autenticarse
-    email: '', // Se llenará al autenticarse
+    name: '',
+    email: '',
     bio: '',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Default',
     totalPoints: 0,
@@ -85,7 +53,6 @@ export default function App() {
   const fetchUserData = async () => {
     setIsLoading(true);
     try {
-      // Fetch User Data
       const { user, perfil, preferencias: userPreferences } = await api.user.getMe();
 
       setUserProfile({
@@ -103,12 +70,10 @@ export default function App() {
         dailyGoal: perfil.meta_diaria || 3,
       });
 
-      // Set Preferences
       setPreferences(userPreferences);
       setDarkMode(userPreferences.modo_oscuro);
       setPushNotifications(userPreferences.notificaciones_push);
 
-      // Fetch Habits
       const apiHabits = await api.habits.list();
       const mappedHabits: Habit[] = apiHabits.map(h => ({
         id: h.id_habito.toString(),
@@ -128,16 +93,14 @@ export default function App() {
 
     } catch (error) {
       console.error('Error loading user data:', error);
-      // If error (e.g. 401), logout and CLEAR TOKEN to prevent loop
       handleLogout();
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Cargar perfil y datos del backend
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    const token = sessionStorage.getItem('accessToken');
     if (!token) {
       setIsAuthenticated(false);
       setCurrentScreen('landing');
@@ -145,16 +108,14 @@ export default function App() {
       return;
     }
     fetchUserData();
-  }, []); // Empty dependency array: run only once on mount
+  }, []);
 
-  // Guardar perfil en localStorage cuando cambie
   useEffect(() => {
     if (isAuthenticated) {
-      localStorage.setItem('habitmaster_profile', JSON.stringify(userProfile));
+      sessionStorage.setItem('habitmaster_profile', JSON.stringify(userProfile));
     }
   }, [userProfile, isAuthenticated]);
 
-  // Cargar dark mode y notificaciones del localStorage al iniciar
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('habitmaster_darkmode');
     if (savedDarkMode) {
@@ -167,13 +128,10 @@ export default function App() {
     }
   }, []);
 
-  // Aplicar dark mode al DOM (pero no en la Landing Page ni Auth)
   useEffect(() => {
-    // Si estamos en landing page o auth screen, siempre desactivar el modo oscuro
     if (currentScreen === 'landing' || currentScreen === 'auth') {
       document.documentElement.classList.remove('dark');
     } else {
-      // En cualquier otra pantalla, aplicar el modo oscuro según la configuración
       if (darkMode) {
         document.documentElement.classList.add('dark');
       } else {
@@ -183,34 +141,12 @@ export default function App() {
     localStorage.setItem('habitmaster_darkmode', darkMode.toString());
   }, [darkMode, currentScreen]);
 
-  // Cargar hábitos del localStorage al iniciar
   useEffect(() => {
-    const savedHabits = localStorage.getItem('habitmaster_habits');
-    if (savedHabits && !isAuthenticated && habits.length === 0) {
-      // Only load from LS if NOT authenticated (e.g. offline mode?) 
-      // But we are moving to backend first. 
-      // If we are authenticated, fetchUserData handles it.
-      // If we are NOT authenticated, we shouldn't show habits.
-      // So this effect might be redundant or conflicting if it overwrites backend data with stale LS data.
-      // I will modify it to only run if we don't have habits yet and we are NOT loading from backend?
-      // Actually, let's trust fetchUserData for authenticated users.
-      try {
-        // setHabits(JSON.parse(savedHabits)); 
-        // Commenting out to prefer backend data
-      } catch (error) {
-        console.error('Error loading habits:', error);
-      }
-    }
-  }, []);
-
-  // Guardar hábitos en localStorage cuando cambien
-  useEffect(() => {
-    if (isAuthenticated && (habits.length > 0 || localStorage.getItem('habitmaster_habits'))) {
-      localStorage.setItem('habitmaster_habits', JSON.stringify(habits));
+    if (isAuthenticated && (habits.length > 0 || sessionStorage.getItem('habitmaster_habits'))) {
+      sessionStorage.setItem('habitmaster_habits', JSON.stringify(habits));
     }
   }, [habits, isAuthenticated]);
 
-  // Actualizar estadísticas del perfil cuando cambien los hábitos
   useEffect(() => {
     if (habits.length > 0) {
       const currentStreak = calculateGlobalStreak(habits);
@@ -219,7 +155,6 @@ export default function App() {
         userProfile.maxStreak
       );
 
-      // Solo actualizar si hay cambios (sin incluir achievementPoints que se maneja separadamente)
       if (
         currentStreak !== userProfile.currentStreak ||
         maxStreak !== userProfile.maxStreak
@@ -233,7 +168,6 @@ export default function App() {
     }
   }, [habits]);
 
-  // Actualizar rachas de los hábitos diariamente
   useEffect(() => {
     const updatedHabits = updateHabitStreaks(habits);
     const hasChanges = updatedHabits.some((habit, index) =>
@@ -245,27 +179,22 @@ export default function App() {
     }
   }, [habits.map(h => h.completedDates.join(',')).join('|')]);
 
-  // Detectar y recompensar nuevos logros
   useEffect(() => {
     if (habits.length === 0) return;
 
-    // Calcular puntos base de hábitos (sin incluir puntos de logros)
     const basePoints = calculateTotalPoints(habits);
 
-    // Verificar qué logros deberían estar desbloqueados
     const shouldBeUnlocked = checkUnlockedAchievements(
       habits,
-      basePoints + userProfile.achievementPoints, // Total incluyendo puntos de logros
+      basePoints + userProfile.achievementPoints,
       userProfile.maxStreak
     );
 
-    // Detectar nuevos logros
     const newAchievements = detectNewAchievements(
       userProfile.unlockedAchievements,
       shouldBeUnlocked
     );
 
-    // Si hay nuevos logros, otorgar puntos y mostrar notificación
     if (newAchievements.length > 0) {
       let totalBonusPoints = 0;
 
@@ -273,8 +202,6 @@ export default function App() {
         const achievement = getAchievementById(achievementId);
         if (achievement) {
           totalBonusPoints += achievement.pointsBonus;
-
-          // Mostrar notificación solo si las notificaciones push están activadas
           if (pushNotifications) {
             toast.success(
               `🏆 ¡Nuevo logro desbloqueado!`,
@@ -287,7 +214,6 @@ export default function App() {
         }
       });
 
-      // Actualizar perfil con nuevos logros y puntos
       setUserProfile(prev => {
         const newAchievementPoints = prev.achievementPoints + totalBonusPoints;
         const newTotalPoints = basePoints + newAchievementPoints;
@@ -302,7 +228,6 @@ export default function App() {
         };
       });
     } else {
-      // Si no hay nuevos logros, solo sincronizar la lista de logros desbloqueados
       if (shouldBeUnlocked.length !== userProfile.unlockedAchievements.length) {
         setUserProfile(prev => ({
           ...prev,
@@ -317,23 +242,16 @@ export default function App() {
   };
 
   const handleLogin = (name?: string, email?: string) => {
-    // Trigger data fetch after login
     fetchUserData();
   };
 
   const handleLogout = () => {
-    // Clear all local storage
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('habitmaster_profile');
-    localStorage.removeItem('habitmaster_habits');
-    // We can keep darkmode/push prefs if we want, or clear them. 
-    // User asked to "borre la cache local".
-    // localStorage.removeItem('habitmaster_darkmode'); 
-    // localStorage.removeItem('habitmaster_pushnotifications');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('habitmaster_profile');
+    sessionStorage.removeItem('habitmaster_habits');
 
-    // Reset State
     setIsAuthenticated(false);
     setCurrentScreen('landing');
     setHabits([]);
@@ -364,17 +282,13 @@ export default function App() {
   };
 
   const handleSaveHabit = async (habitData: Omit<Habit, 'id' | 'completedDates' | 'streak' | 'lastCompleted' | 'createdAt'>) => {
-    console.log('🔵 handleSaveHabit called with:', habitData);
-
     try {
       if (editingHabitId) {
-        // Editar hábito existente
-        console.log('📝 Updating habit:', editingHabitId);
         await api.habits.update(parseInt(editingHabitId), {
           nombre: habitData.name,
           descripcion: habitData.description,
           categoria: habitData.category,
-          dias: Array(habitData.frequency).fill('Mon').join(','), // Simplified logic for now
+          dias: Array(habitData.frequency).fill('Mon').join(','),
           puntos: habitData.points
         });
 
@@ -383,24 +297,18 @@ export default function App() {
             ? { ...habit, ...habitData }
             : habit
         ));
-
-        console.log('✅ Habit updated successfully');
         toast.success('Hábito actualizado correctamente');
       } else {
-        // Crear nuevo hábito
-        console.log('➕ Creating new habit...');
-        const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        const today = new Date().toISOString().split('T')[0];
         const newHabit = await api.habits.create({
           nombre: habitData.name,
           descripcion: habitData.description,
           categoria: habitData.category,
-          dias: Array(habitData.frequency).fill('Mon').join(','), // Simplified logic
+          dias: Array(habitData.frequency).fill('Mon').join(','),
           puntos: habitData.points,
           fecha: today,
           estado: 'pendiente'
         });
-
-        console.log('✅ Habit created, response:', newHabit);
 
         const mappedHabit: Habit = {
           id: newHabit.id_habito.toString(),
@@ -415,22 +323,12 @@ export default function App() {
           points: newHabit.puntos
         };
 
-        console.log('✅ Mapped habit:', mappedHabit);
         setHabits(prev => [...prev, mappedHabit]);
-        console.log('✅ Habit added to state');
         toast.success('¡Hábito creado exitosamente!');
       }
-
-      console.log('🔄 Navigating to habits screen');
       setCurrentScreen('habits');
     } catch (error: any) {
-      console.error('❌ Error saving habit:', error);
-      console.error('❌ Error details:', {
-        message: error?.message,
-        response: error?.response,
-        data: error?.response?.data
-      });
-
+      console.error('Error saving habit:', error);
       const errorMessage = error?.response?.data?.message || error?.message || 'Error al guardar el hábito';
       toast.error(errorMessage);
     }
@@ -469,7 +367,6 @@ export default function App() {
     const newStatus = isCompletedToday ? 'pendiente' : 'completado';
 
     try {
-      // Optimistic update
       setHabits(prev => prev.map(h => {
         if (h.id !== habitId) return h;
 
@@ -489,10 +386,8 @@ export default function App() {
         }
       }));
 
-      // API call
       await api.habits.update(parseInt(habitId), { estado: newStatus });
 
-      // Refresh profile stats (points, etc)
       const { perfil } = await api.user.getMe();
       setUserProfile(prev => ({
         ...prev,
@@ -505,32 +400,24 @@ export default function App() {
     } catch (error) {
       console.error('Error toggling habit:', error);
       toast.error('Error al actualizar el estado del hábito');
-      // Revert optimistic update if needed (omitted for brevity)
     }
   };
 
   const handleUpdateProfile = async (updates: Partial<UserProfile>) => {
     try {
-      // Map frontend profile to backend structure
       const backendUpdates: any = {};
 
-      // User updates (name -> username, email -> email)
       if (updates.name || updates.email) {
         backendUpdates.user = {};
         if (updates.name) backendUpdates.user.username = updates.name;
         if (updates.email) backendUpdates.user.email = updates.email;
       }
 
-      // Profile updates (bio -> biografia, avatar -> avatar_url)
       if (updates.bio !== undefined || updates.avatar !== undefined) {
         backendUpdates.perfil = {};
         if (updates.bio !== undefined) backendUpdates.perfil.biografia = updates.bio;
         if (updates.avatar !== undefined) backendUpdates.perfil.avatar_url = updates.avatar;
       }
-
-      // Handle preferences updates if they were part of UserProfile (they are separate in backend)
-      // For now, we assume updates coming here are mostly profile related.
-      // If settings screen calls this, we might need to separate logic.
 
       await api.user.updateProfile(backendUpdates);
       setUserProfile(prev => ({ ...prev, ...updates }));
@@ -544,7 +431,6 @@ export default function App() {
     setPreferences(prev => ({ ...prev, ...updates }));
   };
 
-  // Show loading screen while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-50 flex items-center justify-center">

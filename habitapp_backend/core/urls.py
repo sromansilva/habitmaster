@@ -4,7 +4,8 @@ from .views import (
     UsuarioViewSet, PerfilViewSet, PreferenciaViewSet, 
     HabitoViewSet, UsuarioHabitoViewSet, LogroViewSet, 
     UsuarioLogroViewSet, UsuarioLogViewSet,
-    RegisterView, LoginView, UserProfileView, RankingView, ChangePasswordView
+    RegisterView, LoginView, UserProfileView, RankingView, ChangePasswordView,
+    PrologDemoView, ChatBotView
 )
 
 router = DefaultRouter()
@@ -24,4 +25,6 @@ urlpatterns = [
     path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('user/me/', UserProfileView.as_view(), name='user-profile'),
     path('ranking/', RankingView.as_view(), name='ranking'),
+    path('prolog-demo/', PrologDemoView.as_view(), name='prolog-demo'),
+    path('chat/', ChatBotView.as_view(), name='chat'),
 ]

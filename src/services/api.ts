@@ -46,7 +46,7 @@ export interface Habit {
 }
 
 const getHeaders = () => {
-    const token = localStorage.getItem('accessToken');
+    const token = sessionStorage.getItem('accessToken');
     return {
         'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : '',
@@ -188,6 +188,18 @@ export const api = {
                 headers: getHeaders(),
             });
             if (!response.ok) throw new Error('Failed to fetch ranking');
+            return response.json();
+        }
+    },
+
+    chat: {
+        async sendMessage(message: string, history: any[]): Promise<{ response: string, message: any }> {
+            const response = await fetch(`${API_URL}/chat/`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ message, history }),
+            });
+            if (!response.ok) throw new Error('Failed to send message');
             return response.json();
         }
     }

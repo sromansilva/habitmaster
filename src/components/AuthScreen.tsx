@@ -54,9 +54,10 @@ export function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
         const data = await api.auth.login({ username: registerName, password: registerPassword });
 
         // 3. Save tokens
-        localStorage.setItem('accessToken', data.access);
-        localStorage.setItem('refreshToken', data.refresh);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // 3. Save tokens
+        sessionStorage.setItem('accessToken', data.access);
+        sessionStorage.setItem('refreshToken', data.refresh);
+        sessionStorage.setItem('user', JSON.stringify(data.user));
 
         // 4. Notify parent
         onLogin(data.user.username, data.user.email);
@@ -71,9 +72,9 @@ export function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
         // But the UI says "Correo electrónico".
         // I will change the UI label to "Usuario" to match backend requirement.
 
-        localStorage.setItem('accessToken', data.access);
-        localStorage.setItem('refreshToken', data.refresh);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        sessionStorage.setItem('accessToken', data.access);
+        sessionStorage.setItem('refreshToken', data.refresh);
+        sessionStorage.setItem('user', JSON.stringify(data.user));
 
         onLogin(data.user.username, data.user.email);
       }

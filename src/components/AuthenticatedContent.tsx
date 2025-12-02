@@ -8,6 +8,8 @@ import { Ranking } from './Ranking';
 import { UserProfile as UserProfileComponent } from './UserProfile';
 import { Achievements } from './Achievements';
 import { Settings } from './Settings';
+import { PrologDemo } from './PrologDemo';
+import { ChatWidget } from './ChatWidget';
 import { useNotifications } from '../contexts/NotificationContext';
 import type { Screen, Habit, UserProfile } from '../types';
 
@@ -101,6 +103,7 @@ export function AuthenticatedContent({
           />
         )}
         {currentScreen === 'achievements' && <Achievements habits={habits} userProfile={userProfile} />}
+        {currentScreen === 'prolog' && <PrologDemo />}
         {currentScreen === 'settings' && (
           <Settings
             darkMode={darkMode}
@@ -114,6 +117,7 @@ export function AuthenticatedContent({
             habits={habits}
           />
         )}
+        <ChatWidget />
       </main>
     </div>
   );

@@ -5,6 +5,8 @@ from rest_framework.permissions import AllowAny
 from django.contrib.auth.hashers import check_password
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Usuario, Perfil, Preferencia, Habito, UsuarioHabito, Logro, UsuarioLogro, UsuarioLog
+from .prolog_service import PrologService
+from .chat_service import ChatService
 from .serializers import (
     UsuarioSerializer, RegisterSerializer, LoginSerializer, ChangePasswordSerializer,
     PerfilSerializer, PreferenciaSerializer, 
@@ -272,3 +274,81 @@ class RankingView(generics.ListAPIView):
     
     def get_queryset(self):
         return Perfil.objects.select_related('usuario').all().order_by('-puntos_totales')
+
+class PrologDemoView(APIView):
+    permission_classes = [permissions.AllowAny] # Allow any for demo purposes, or IsAuthenticated
+
+    def get(self, request):
+        service = PrologService()
+        action = request.query_params.get('action')
+
+        if not action:
+            # Return available actions
+            return Response({
+                'available_actions': [
+                    'sugerir_habito',
+                    'sugerir_por_dificultad',
+                    'nivel_usuario',
+                    'calcular_bonus'
+                ]
+            })
+
+        try:
+            result = {}
+            if action == 'sugerir_habito':
+                categoria = request.query_params.get('categoria', 'Salud')
+                result['resultado'] = service.obtener_sugerencias(categoria)
+            
+            elif action == 'sugerir_por_dificultad':
+                dificultad = request.query_params.get('dificultad', 'Facil')
+                result['resultado'] = service.obtener_sugerencias_por_dificultad(dificultad)
+            
+            elif action == 'nivel_usuario':
+                puntos = int(request.query_params.get('puntos', 0))
+                result['resultado'] = service.obtener_nivel(puntos)
+            
+            elif action == 'calcular_bonus':
+                racha = int(request.query_params.get('racha', 0))
+                result['resultado'] = service.calcular_bonus_racha(racha)
+            
+            else:
+                return Response({'error': 'Acción no válida'}, status=400)
+
+            return Response(result)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+class ChatBotView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """
+        Endpoint to handle chat messages.
+        Expects:
+        {
+            "message": "User message here",
+            "history": [{"role": "user", "content": "prev msg"}, ...] (Optional)
+        }
+        """
+        user_message = request.data.get('message')
+        history = request.data.get('history', [])
+
+        if not user_message:
+            return Response({'error': 'Message is required'}, status=400)
+
+        # Construct context from history + current message
+        # Ensure history is a list of dicts with 'role' and 'content'
+        # We limit history to last 10 messages to save tokens
+        recent_history = history[-10:] if history else []
+        
+        # Add current message
+        current_msg_obj = {"role": "user", "content": user_message}
+        messages = recent_history + [current_msg_obj]
+
+        service = ChatService()
+        response_text = service.get_chat_response(messages)
+
+        return Response({
+            'response': response_text,
+            'message': current_msg_obj # Return the formatted user message to append to state if needed
+        })
