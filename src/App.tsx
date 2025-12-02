@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, Habit as ApiHabit } from './services/api';
+import { api } from './services/api';
 import { Toaster, toast } from 'sonner';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { LandingPage } from './components/LandingPage';
@@ -11,7 +11,6 @@ import {
   calculateGlobalStreak,
   calculateGlobalMaxStreak,
   calculateStreak,
-  calculateTotalCompletions,
   updateHabitStreaks
 } from './utils/habitCalculations';
 import { checkUnlockedAchievements, detectNewAchievements } from './utils/achievementChecker';
@@ -53,6 +52,7 @@ import { Screen, Habit, UserProfile } from './types';
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [darkMode, setDarkMode] = useState(false);
@@ -79,6 +79,7 @@ export default function App() {
     memberSince: new Date().toISOString(),
     unlockedAchievements: [],
     achievementPoints: 0,
+    dailyGoal: 3,
   });
 
   // Cargar perfil y datos del backend
@@ -88,6 +89,7 @@ export default function App() {
       if (!token) {
         setIsAuthenticated(false);
         setCurrentScreen('landing');
+        setIsLoading(false);
         return;
       }
 
@@ -111,6 +113,7 @@ export default function App() {
           memberSince: new Date().toISOString(),
           unlockedAchievements: [],
           achievementPoints: 0,
+          dailyGoal: perfil.meta_diaria || 3,
         });
 
         // Set Preferences
@@ -133,12 +136,14 @@ export default function App() {
           points: h.puntos
         }));
         setHabits(mappedHabits);
+        setIsLoading(false);
 
       } catch (error) {
         console.error('Error loading user data:', error);
         // If error (e.g. 401), logout and CLEAR TOKEN to prevent loop
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        setIsLoading(false);
         handleLogout();
       }
     };
@@ -202,7 +207,6 @@ export default function App() {
   // Actualizar estadísticas del perfil cuando cambien los hábitos
   useEffect(() => {
     if (habits.length > 0) {
-      const basePoints = calculateTotalPoints(habits);
       const currentStreak = calculateGlobalStreak(habits);
       const maxStreak = Math.max(
         calculateGlobalMaxStreak(habits),
@@ -342,10 +346,13 @@ export default function App() {
   };
 
   const handleSaveHabit = async (habitData: Omit<Habit, 'id' | 'completedDates' | 'streak' | 'lastCompleted' | 'createdAt'>) => {
+    console.log('🔵 handleSaveHabit called with:', habitData);
+
     try {
       if (editingHabitId) {
         // Editar hábito existente
-        const updatedHabit = await api.habits.update(parseInt(editingHabitId), {
+        console.log('📝 Updating habit:', editingHabitId);
+        await api.habits.update(parseInt(editingHabitId), {
           nombre: habitData.name,
           descripcion: habitData.description,
           categoria: habitData.category,
@@ -358,15 +365,24 @@ export default function App() {
             ? { ...habit, ...habitData }
             : habit
         ));
+
+        console.log('✅ Habit updated successfully');
+        toast.success('Hábito actualizado correctamente');
       } else {
         // Crear nuevo hábito
+        console.log('➕ Creating new habit...');
+        const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
         const newHabit = await api.habits.create({
           nombre: habitData.name,
           descripcion: habitData.description,
           categoria: habitData.category,
           dias: Array(habitData.frequency).fill('Mon').join(','), // Simplified logic
-          puntos: habitData.points
+          puntos: habitData.points,
+          fecha: today,
+          estado: 'pendiente'
         });
+
+        console.log('✅ Habit created, response:', newHabit);
 
         const mappedHabit: Habit = {
           id: newHabit.id_habito.toString(),
@@ -381,12 +397,24 @@ export default function App() {
           points: newHabit.puntos
         };
 
+        console.log('✅ Mapped habit:', mappedHabit);
         setHabits(prev => [...prev, mappedHabit]);
+        console.log('✅ Habit added to state');
+        toast.success('¡Hábito creado exitosamente!');
       }
+
+      console.log('🔄 Navigating to habits screen');
       setCurrentScreen('habits');
-    } catch (error) {
-      console.error('Error saving habit:', error);
-      toast.error('Error al guardar el hábito');
+    } catch (error: any) {
+      console.error('❌ Error saving habit:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        response: error?.response,
+        data: error?.response?.data
+      });
+
+      const errorMessage = error?.response?.data?.message || error?.message || 'Error al guardar el hábito';
+      toast.error(errorMessage);
     }
   };
 
@@ -397,6 +425,20 @@ export default function App() {
     } catch (error) {
       console.error('Error deleting habit:', error);
       toast.error('Error al eliminar el hábito');
+    }
+  };
+
+  const handleDailyGoalUpdate = async (newGoal: number) => {
+    try {
+      const { perfil } = await api.user.updateDailyGoal(newGoal);
+      setUserProfile(prev => ({
+        ...prev,
+        dailyGoal: perfil.meta_diaria,
+      }));
+      toast.success('Meta diaria actualizada');
+    } catch (error) {
+      console.error('Error updating daily goal:', error);
+      toast.error('Error al actualizar la meta diaria');
     }
   };
 
@@ -471,6 +513,18 @@ export default function App() {
     setPreferences(prev => ({ ...prev, ...updates }));
   };
 
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-neutral-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <NotificationProvider pushNotificationsEnabled={pushNotifications}>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 overflow-x-hidden">
@@ -502,6 +556,7 @@ export default function App() {
             onUpdatePreferences={handleUpdatePreferences}
             onDarkModeChange={setDarkMode}
             onPushNotificationsChange={setPushNotifications}
+            onDailyGoalUpdate={handleDailyGoalUpdate}
             onLogout={handleLogout}
           />
         )}

@@ -8,10 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { DailyGoalSelector } from './DailyGoalSelector';
 import type { Screen, Habit, UserProfile } from '../types';
 import {
-  calculateTotalPoints,
-  calculateLevel,
   calculateLevelProgress,
-  calculateGlobalStreak,
   calculateWeeklyActivity,
   calculateCompletedToday
 } from '../utils/habitCalculations';
@@ -20,13 +17,14 @@ interface DashboardProps {
   habits: Habit[];
   userProfile: UserProfile;
   onNavigate: (screen: Screen) => void;
+  onDailyGoalUpdate?: (newGoal: number) => Promise<void>;
 }
 
 /**
  * DJANGO BACKEND NOTES:
  * - GET /api/dashboard/ - Obtiene datos del usuario actual
  * - Datos requeridos:
- *   - Profile: puntos_totales, racha_actual, nivel, progreso_nivel
+ *   - Profile: puntos_totales, racha_actual, nivel, progreso_nivel, meta_diaria
  *   - HabitLog: registros últimos 7 días (para gráfico)
  *   - Habit: lista de hábitos activos del usuario
  *   - Achievement: logros desbloqueados
@@ -36,25 +34,23 @@ interface DashboardProps {
  *   - Racha se calcula verificando HabitLog consecutivos
  */
 
-export function Dashboard({ habits, userProfile, onNavigate }: DashboardProps) {
-  const [dailyGoal, setDailyGoal] = useState(() => {
-    const saved = localStorage.getItem('habitmaster_daily_goal');
-    return saved ? parseInt(saved) : 3; // Meta por defecto: 3 hábitos
-  });
+export function Dashboard({ habits, userProfile, onNavigate, onDailyGoalUpdate }: DashboardProps) {
+  // Load daily goal from userProfile (backend) instead of localStorage
+  const [dailyGoal, setDailyGoal] = useState(userProfile.dailyGoal || 3);
   const [showGoalSelector, setShowGoalSelector] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
   // ===== CALCULAR DATOS EN TIEMPO REAL =====
 
-  // Calcular puntos, nivel y progreso desde los hábitos reales
-  const currentPoints = calculateTotalPoints(habits);
-  const currentLevel = calculateLevel(currentPoints);
+  // Usar puntos del backend (fuente de verdad) en lugar de calcular localmente
+  const currentPoints = userProfile.totalPoints;
+  const currentLevel = userProfile.level;
   const levelProgress = calculateLevelProgress(currentPoints);
   const pointsForNextLevel = currentLevel * 100;
 
-  // Calcular racha global
-  const currentStreak = calculateGlobalStreak(habits);
+  // Calcular racha desde el perfil del backend
+  const currentStreak = userProfile.currentStreak;
 
   // Calcular hábitos completados hoy
   const completedToday = calculateCompletedToday(habits);
@@ -78,10 +74,12 @@ export function Dashboard({ habits, userProfile, onNavigate }: DashboardProps) {
     completedToday: habit.completedDates.includes(today)
   }));
 
-  // Guardar meta diaria en localStorage
-  const handleGoalChange = (newGoal: number) => {
+  // Guardar meta diaria en backend
+  const handleGoalChange = async (newGoal: number) => {
     setDailyGoal(newGoal);
-    localStorage.setItem('habitmaster_daily_goal', newGoal.toString());
+    if (onDailyGoalUpdate) {
+      await onDailyGoalUpdate(newGoal);
+    }
   };
 
   return (

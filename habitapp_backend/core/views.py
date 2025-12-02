@@ -92,6 +92,80 @@ class HabitoViewSet(viewsets.ModelViewSet):
         except Perfil.DoesNotExist:
             pass
 
+    def update(self, request, *args, **kwargs):
+        from datetime import datetime, timedelta
+        
+        # Get the habit instance before update
+        instance = self.get_object()
+        old_estado = instance.estado
+        
+        # Perform the update
+        response = super().update(request, *args, **kwargs)
+        
+        # Get the updated instance
+        instance.refresh_from_db()
+        new_estado = instance.estado
+        
+        # Update points and streaks if estado changed
+        if old_estado != new_estado:
+            try:
+                perfil = Perfil.objects.get(usuario=request.user)
+                
+                if old_estado == 'pendiente' and new_estado == 'completado':
+                    # Habit completed: add points
+                    perfil.puntos_totales += instance.puntos
+                    perfil.habitos_completados += 1
+                    
+                    # Calculate streak
+                    today = datetime.now().date()
+                    yesterday = today - timedelta(days=1)
+                    
+                    # Get all user's habits completed today
+                    user_habits = Habito.objects.filter(
+                        usuariohabito__usuario=request.user,
+                        estado='completado',
+                        fecha=today
+                    )
+                    
+                    # Get habits completed yesterday
+                    habits_yesterday = Habito.objects.filter(
+                        usuariohabito__usuario=request.user,
+                        estado='completado',
+                        fecha=yesterday
+                    )
+                    
+                    # Update streak logic
+                    if habits_yesterday.exists():
+                        # Continue streak
+                        perfil.racha_actual += 1
+                    else:
+                        # Check if this is the first habit today
+                        if user_habits.count() == 1:  # Only this habit completed today
+                            # Start new streak or reset
+                            perfil.racha_actual = 1
+                    
+                    # Update max streak if current is higher
+                    if perfil.racha_actual > perfil.racha_maxima:
+                        perfil.racha_maxima = perfil.racha_actual
+                    
+                    print("Added {} points. Total: {}".format(instance.puntos, perfil.puntos_totales))
+                    print("Streak: {} days (Max: {})".format(perfil.racha_actual, perfil.racha_maxima))
+                    
+                elif old_estado == 'completado' and new_estado == 'pendiente':
+                    # Habit uncompleted: subtract points
+                    perfil.puntos_totales = max(0, perfil.puntos_totales - instance.puntos)
+                    perfil.habitos_completados = max(0, perfil.habitos_completados - 1)
+                    
+                    print("Subtracted {} points. Total: {}".format(instance.puntos, perfil.puntos_totales))
+                
+                perfil.save()
+                
+            except Perfil.DoesNotExist:
+                print("Profile not found for user {}".format(request.user.username))
+                pass
+        
+        return response
+
 class UsuarioHabitoViewSet(viewsets.ModelViewSet):
     queryset = UsuarioHabito.objects.all()
     serializer_class = UsuarioHabitoSerializer

@@ -29,6 +29,7 @@ interface AuthenticatedContentProps {
   onUpdatePreferences: (updates: any) => void;
   onDarkModeChange: (value: boolean) => void;
   onPushNotificationsChange: (value: boolean) => void;
+  onDailyGoalUpdate: (newGoal: number) => Promise<void>;
   onLogout: () => void;
 }
 
@@ -50,6 +51,7 @@ export function AuthenticatedContent({
   onUpdatePreferences,
   onDarkModeChange,
   onPushNotificationsChange,
+  onDailyGoalUpdate,
   onLogout,
 }: AuthenticatedContentProps) {
   const { showNotification } = useNotifications();
@@ -67,7 +69,7 @@ export function AuthenticatedContent({
     <div className="flex min-h-screen">
       <Navigation currentScreen={currentScreen} onNavigate={onNavigate} />
       <main className="flex-1 w-full md:ml-64 pb-20 md:pb-0">
-        {currentScreen === 'dashboard' && <Dashboard habits={habits} userProfile={userProfile} onNavigate={onNavigate} />}
+        {currentScreen === 'dashboard' && <Dashboard habits={habits} userProfile={userProfile} onNavigate={onNavigate} onDailyGoalUpdate={onDailyGoalUpdate} />}
         {currentScreen === 'habits' && (
           <MyHabits
             habits={habits}

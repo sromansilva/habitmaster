@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode } from 'react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Trophy, TrendingUp, Zap, Plus, Trash2, CheckCircle2, Award } from 'lucide-react';
 
 interface NotificationContextType {
@@ -7,7 +7,7 @@ interface NotificationContextType {
   showNotification: (type: NotificationType, message: string) => void;
 }
 
-export type NotificationType = 
+export type NotificationType =
   | 'achievement'
   | 'ranking-up'
   | 'level-up'
@@ -31,7 +31,7 @@ export function NotificationProvider({ children, pushNotificationsEnabled }: Not
 
     // Configurar ícono y estilo según el tipo
     let icon: ReactNode;
-    
+
     switch (type) {
       case 'achievement':
         icon = <Trophy className="w-5 h-5 text-yellow-500" />;

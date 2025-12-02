@@ -43,6 +43,9 @@ class PreferenciaSerializer(serializers.ModelSerializer):
         fields = ['id_usuario', 'modo_oscuro', 'notificaciones_push', 'notificaciones_email', 'zona_horaria', 'idioma']
 
 class HabitoSerializer(serializers.ModelSerializer):
+    # Explicitly handle fecha as DateField to avoid datetime/date mismatch
+    fecha = serializers.DateField(format='%Y-%m-%d', input_formats=['%Y-%m-%d', 'iso-8601'])
+    
     class Meta:
         model = Habito
         fields = ['id_habito', 'nombre', 'descripcion', 'puntos', 'fecha', 'categoria', 'dias', 'estado']

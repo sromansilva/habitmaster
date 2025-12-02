@@ -25,4 +25,5 @@ export interface UserProfile {
     memberSince: string;
     unlockedAchievements: string[]; // IDs de logros desbloqueados
     achievementPoints: number; // Puntos totales ganados por logros
+    dailyGoal: number; // Meta diaria de hábitos
 }

@@ -22,6 +22,7 @@ export interface Profile {
     habitos_completados: number;
     num_logros_obtenidos: number;
     meta_diaria: number;
+    avatar_url: string | null;
 }
 
 export interface Preferences {
@@ -88,17 +89,27 @@ export const api = {
             const response = await fetch(`${API_URL}/user/me/`, {
                 headers: getHeaders(),
             });
-            if (!response.ok) throw new Error('Failed to fetch profile');
+            if (!response.ok) throw new Error('Failed to fetch user data');
             return response.json();
         },
 
-        async updateProfile(data: Partial<Profile>): Promise<any> {
+        async updateProfile(data: Partial<Profile>): Promise<{ user: User, perfil: Profile, preferencias: Preferences }> {
             const response = await fetch(`${API_URL}/user/me/`, {
                 method: 'PATCH',
                 headers: getHeaders(),
                 body: JSON.stringify({ perfil: data }),
             });
             if (!response.ok) throw new Error('Failed to update profile');
+            return response.json();
+        },
+
+        async updateDailyGoal(dailyGoal: number): Promise<{ user: User, perfil: Profile, preferencias: Preferences }> {
+            const response = await fetch(`${API_URL}/user/me/`, {
+                method: 'PATCH',
+                headers: getHeaders(),
+                body: JSON.stringify({ perfil: { meta_diaria: dailyGoal } }),
+            });
+            if (!response.ok) throw new Error('Failed to update daily goal');
             return response.json();
         },
 
@@ -128,7 +139,11 @@ export const api = {
                 headers: getHeaders(),
                 body: JSON.stringify(habit),
             });
-            if (!response.ok) throw new Error('Failed to create habit');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Backend error:', errorData);
+                throw new Error(errorData.detail || errorData.message || JSON.stringify(errorData) || 'Failed to create habit');
+            }
             return response.json();
         },
 
